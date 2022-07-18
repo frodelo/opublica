@@ -1,0 +1,92 @@
+---
+title: "Análisis textual"
+author: "Frida V. Rodelo"
+date: "5/18/2022"
+output: html_document
+---
+
+## Cargar paquetes
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidytext)
+library(forcats) #fct_reorder()
+library(wordcloud)
+```
+
+## Cargar datos de Twitter en formato CSV
+```{r}
+datos_twitter <- read.csv("data\\udg_tuits.csv")
+#mayor información sobre read.csv: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/read.table.html
+datos_twitter # ver base
+```
+
+## Cargar stopwords en español en formato CSV
+```{r}
+stop_words_spa <- read.csv("data\\stop_spa.csv")
+#mayor información sobre read.csv: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/read.table.html
+stop_words_spa # ver base
+#OJO: cabecera debe tener vars word y lexicon
+```
+
+## Pegar stop words propias con bind_rows()
+
+```{r}
+custom_stop_words <- tribble( 
+  ~word,    ~lexicon, 
+  "rt", "CUSTOM", 
+  "https",      "CUSTOM", 
+  "t.co",      "CUSTOM" 
+) 
+stop_words2 <- stop_words_spa %>%  
+  bind_rows(custom_stop_words) 
+#stop_words son en inglés, usaremos stop_words_spa
+```
+
+## Usando el paquete tidytext para que la unidad de análisis sea cada palabra de cada tuit
+
+```{r}
+tidy_tweets <- datos_twitter %>%
+  mutate(id = row_number()) %>%
+  unnest_tokens(word, text) %>% #text es el nombre de la variable donde se encuentra el tuit, word es el nombre de la nueva columna en el data frame. 
+  anti_join(stop_words2)
+```
+
+## Filtrar para excluir las palabras que se repiten en menos de n ocasiones
+
+```{r}
+word_counts <- tidy_tweets %>%  
+  count(word) %>%  
+  filter(n > 5) %>%
+  mutate(word2 = fct_reorder(word, n)) 
+```
+
+## Visualización en una gráfica de barras invertida
+
+```{r}
+ggplot( 
+  word_counts, aes(x = word2, y = n) 
+) + 
+  geom_col() + 
+  coord_flip() + 
+  ggtitle("Conteo de palabras en tuits")
+```
+
+## Nube de palabras (computé el nuevo data frame word_counts2 para que haya columna de frecuencia)
+
+```{r}
+word_counts2 <- tidy_tweets %>%  
+ count(word) 
+wordcloud( 
+  words = word_counts2$word,  
+  freq = word_counts2$n,  
+  max.words = 30 
+) 
+```
+
+## Fuentes
+
+* https://rpubs.com/jboscomendoza/analisis_sentimientos_lexico_afinn
+* https://towardsdatascience.com/pulling-tweets-into-r-e17d4981cfe2 (para bajar tuits usando el API de Twitter)
+
+
